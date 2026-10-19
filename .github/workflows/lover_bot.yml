@@ -1,0 +1,45 @@
+# ============================================================
+# Workflow: "Người yêu ảo" — Telegram Bot chạy 24/7 miễn phí
+# Cơ chế: cron kích hoạt mỗi 5 phút; bot.py tự chạy vòng lặp
+# long-polling ~4 phút trong mỗi lần kích hoạt rồi kết thúc.
+# ============================================================
+
+name: Lover Bot
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'   # kích hoạt tự động mỗi 5 phút
+  workflow_dispatch:          # cho phép bấm "Run workflow" chạy thủ công để test
+
+# Chỉ cho phép MỘT instance chạy tại cùng một thời điểm.
+# Phiên cũ còn treo sẽ bị hủy -> tránh 2 instance cùng getUpdates (lỗi 409 Conflict)
+concurrency:
+  group: lover-bot
+  cancel-in-progress: true
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8       # chặn cứng: không job nào được chạy quá 8 phút
+
+    steps:
+      - name: Tải mã nguồn
+        uses: actions/checkout@v4
+
+      - name: Cài Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Cài thư viện
+        run: pip install --no-cache-dir requests
+
+      - name: Chạy bot (vòng lặp ~4 phút)
+        env:
+          # Toàn bộ bí mật lấy từ GitHub Secrets — KHÔNG BAO GIỜ hard-code vào code
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID:   ${{ secrets.TELEGRAM_CHAT_ID }}
+          DEEPSEEK_API_KEY:   ${{ secrets.DEEPSEEK_API_KEY }}
+          GIST_ID:            ${{ secrets.GIST_ID }}
+          PAT_TOKEN:          ${{ secrets.PAT_TOKEN }}
+        run: python bot.py
